@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#173b57">
+  <title>45天 · 400词</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="topbar" aria-label="主要导航">
+      <a class="brand" href="#" aria-label="返回今天">
+        <span class="brand-mark">W</span>
+        <span>45天 · 400词</span>
+      </a>
+      <button id="openSettings" class="icon-button" type="button" aria-label="打开设置">⚙</button>
+    </nav>
+
+    <div class="hero-content">
+      <div>
+        <p class="eyebrow">MOST USEFUL ENGLISH WORDS</p>
+        <h1>每天一点，<br><em>45天</em>记住400词。</h1>
+        <p class="hero-copy">固定计划、清晰朗读、随时回到任意一天复习。</p>
+      </div>
+      <div class="progress-card">
+        <div class="progress-ring" id="progressRing" style="--progress: 0">
+          <div>
+            <strong id="masteredCount">0</strong>
+            <span>/ 400</span>
+          </div>
+        </div>
+        <p>已掌握单词</p>
+        <div class="mini-progress"><span id="progressBar"></span></div>
+        <small id="progressMessage">今天就从第一个词开始吧。</small>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="control-panel" aria-label="学习日期和搜索">
+      <div class="day-picker">
+        <button id="prevDay" class="round-button" type="button" aria-label="前一天">←</button>
+        <button id="dayButton" class="day-button" type="button" aria-haspopup="dialog">
+          <span>学习计划</span>
+          <strong id="dayLabel">第 1 天</strong>
+          <small id="dayRange">单词 1–9</small>
+        </button>
+        <button id="nextDay" class="round-button" type="button" aria-label="后一天">→</button>
+      </div>
+
+      <label class="search-box">
+        <span aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" placeholder="搜索英文或中文，定位到学习日…" autocomplete="off">
+        <kbd>Enter</kbd>
+      </label>
+    </section>
+
+    <section class="study-toolbar" aria-label="朗读和听写工具">
+      <div>
+        <p class="section-kicker">TODAY'S WORDS</p>
+        <h2 id="studyTitle">今天学习 9 个词</h2>
+      </div>
+      <div class="toolbar-actions">
+        <button id="playAll" class="primary-button" type="button"><span>▶</span> 逐词朗读</button>
+        <button id="dictationMode" class="secondary-button" type="button">听写模式</button>
+      </div>
+    </section>
+
+    <div id="searchNotice" class="search-notice" hidden></div>
+    <section id="wordGrid" class="word-grid" aria-live="polite"></section>
+
+    <section class="day-summary">
+      <div>
+        <span class="summary-icon">✓</span>
+        <div>
+          <strong id="dayMastered">本日已掌握 0 / 9</strong>
+          <p>点亮单词卡上的圆圈，进度会自动保存在此浏览器中。</p>
+        </div>
+      </div>
+      <button id="markDayDone" class="text-button" type="button">本日全部掌握 →</button>
+    </section>
+  </main>
+
+  <dialog id="dayDialog" class="modal">
+    <div class="modal-head">
+      <div>
+        <p class="section-kicker">45-DAY MAP</p>
+        <h2>选择学习日</h2>
+      </div>
+      <button class="close-button" data-close="dayDialog" type="button" aria-label="关闭">×</button>
+    </div>
+    <div id="dayMap" class="day-map"></div>
+  </dialog>
+
+  <dialog id="settingsDialog" class="modal settings-modal">
+    <div class="modal-head">
+      <div>
+        <p class="section-kicker">VOICE & PLAN</p>
+        <h2>朗读与计划设置</h2>
+      </div>
+      <button class="close-button" data-close="settingsDialog" type="button" aria-label="关闭">×</button>
+    </div>
+
+    <label class="field">
+      <span>英文朗读音色</span>
+      <select id="voiceSelect"></select>
+      <small>优先选择名称中带 Natural、Online、Google 或 Microsoft 的美式英语音色。</small>
+    </label>
+
+    <label class="field">
+      <span>朗读速度：<output id="rateOutput">0.85×</output></span>
+      <input id="rateInput" type="range" min="0.6" max="1.15" value="0.85" step="0.05">
+    </label>
+
+    <label class="field">
+      <span>计划开始日期</span>
+      <input id="startDate" type="date">
+      <small id="todayHint">设置后，“今天”会自动对应到学习日。</small>
+    </label>
+
+    <button id="goToday" class="primary-button full-button" type="button">前往今天的计划</button>
+  </dialog>
+
+  <dialog id="dictationDialog" class="modal dictation-modal">
+    <div class="modal-head">
+      <div>
+        <p class="section-kicker">DICTATION</p>
+        <h2>第 <span id="dictationDay">1</span> 天听写</h2>
+      </div>
+      <button class="close-button" data-close="dictationDialog" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="dictation-stage">
+      <p id="dictationCounter">第 1 / 9 个</p>
+      <button id="dictationSpeak" class="speaker-button" type="button" aria-label="播放当前单词">🔊</button>
+      <p class="dictation-tip">先听发音，在纸上写下单词，再查看答案。</p>
+      <button id="revealWord" class="secondary-button" type="button">显示答案</button>
+      <div id="dictationAnswer" class="dictation-answer" hidden></div>
+      <div class="dictation-nav">
+        <button id="dictationPrev" class="round-button" type="button" aria-label="上一个">←</button>
+        <button id="dictationNext" class="primary-button" type="button">下一个</button>
+      </div>
+    </div>
+  </dialog>
+
+  <template id="wordCardTemplate">
+    <article class="word-card">
+      <div class="card-top">
+        <span class="word-number"></span>
+        <button class="master-button" type="button" aria-label="标记为已掌握"></button>
+      </div>
+      <button class="word-speak" type="button">
+        <span class="word-text"></span>
+        <span class="sound-icon" aria-hidden="true">🔊</span>
+      </button>
+      <p class="meaning"></p>
+      <p class="word-day"></p>
+    </article>
+  </template>
+
+  <script src="words.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
