@@ -53,6 +53,7 @@ const defaultState = {
   currentDay: 1,
   mastered: [],
   startDate: new Date().toISOString().slice(0, 10),
+  audioMode: "bundled",
   voiceURI: "",
   rate: 0.85,
 };
@@ -73,6 +74,7 @@ function loadState() {
 let state = loadState();
 let voices = [];
 let speakingAll = false;
+let currentAudio = null;
 let dictationWords = [];
 let dictationIndex = 0;
 
@@ -196,38 +198,29 @@ function rankVoice(voice) {
 }
 
 function loadVoices() {
-  if (!("speechSynthesis" in window)) {
-    elements.voiceSelect.innerHTML = "<option>当前浏览器不支持语音朗读</option>";
-    elements.playAll.disabled = true;
-    return;
-  }
-
-  voices = speechSynthesis.getVoices()
-    .filter((voice) => voice.lang.toLowerCase().startsWith("en"))
-    .sort((a, b) => rankVoice(b) - rankVoice(a));
-
   elements.voiceSelect.innerHTML = "";
-  if (!voices.length) {
-    const option = document.createElement("option");
-    option.textContent = "使用浏览器默认英文音色";
-    option.value = "";
-    elements.voiceSelect.append(option);
-    return;
+  const bundledOption = document.createElement("option");
+  bundledOption.value = "bundled";
+  bundledOption.textContent = "内置美式发音（兼容模式，推荐）";
+  elements.voiceSelect.append(bundledOption);
+
+  if ("speechSynthesis" in window) {
+    voices = speechSynthesis.getVoices()
+      .filter((voice) => voice.lang.toLowerCase().startsWith("en"))
+      .sort((a, b) => rankVoice(b) - rankVoice(a));
+
+    voices.forEach((voice) => {
+      const option = document.createElement("option");
+      option.value = `browser:${voice.voiceURI}`;
+      option.textContent = `浏览器音色：${voice.name} (${voice.lang})`;
+      elements.voiceSelect.append(option);
+    });
   }
 
-  voices.forEach((voice) => {
-    const option = document.createElement("option");
-    option.value = voice.voiceURI;
-    option.textContent = `${voice.name} (${voice.lang})`;
-    elements.voiceSelect.append(option);
-  });
-
-  const selectedExists = voices.some((voice) => voice.voiceURI === state.voiceURI);
-  if (!selectedExists) {
-    state.voiceURI = voices[0].voiceURI;
-    saveState();
-  }
-  elements.voiceSelect.value = state.voiceURI;
+  const browserValue = `browser:${state.voiceURI}`;
+  const hasSavedVoice = voices.some((voice) => browserValue === `browser:${voice.voiceURI}`);
+  elements.voiceSelect.value =
+    state.audioMode === "browser" && hasSavedVoice ? browserValue : "bundled";
 }
 
 function selectedVoice() {
@@ -238,14 +231,12 @@ function clearSpeakingCards() {
   document.querySelectorAll(".word-card.speaking").forEach((card) => card.classList.remove("speaking"));
 }
 
-function speakWord(word, card = null, onEnd = null) {
+function speakWithBrowser(word, card = null, onEnd = null) {
   if (!("speechSynthesis" in window)) {
-    alert("当前浏览器不支持语音朗读，请使用最新版 Edge、Chrome 或 Safari。");
+    alert("音频加载失败，请检查网络后重试。");
     return;
   }
   speechSynthesis.cancel();
-  clearSpeakingCards();
-  if (card) card.classList.add("speaking");
 
   const utterance = new SpeechSynthesisUtterance(word);
   utterance.lang = "en-US";
@@ -265,8 +256,50 @@ function speakWord(word, card = null, onEnd = null) {
   speechSynthesis.speak(utterance);
 }
 
-function stopSpeaking() {
+function speakWord(word, card = null, onEnd = null) {
+  stopCurrentSound();
+  clearSpeakingCards();
+  if (card) card.classList.add("speaking");
+
+  if (state.audioMode === "browser") {
+    speakWithBrowser(word, card, onEnd);
+    return;
+  }
+
+  const fileName = `${word.toLowerCase()}.mp3`;
+  const audio = new Audio(`audio/${encodeURIComponent(fileName)}`);
+  currentAudio = audio;
+  audio.preload = "auto";
+  audio.playbackRate = Number(state.rate);
+  audio.onended = () => {
+    currentAudio = null;
+    if (card) card.classList.remove("speaking");
+    if (onEnd) onEnd();
+  };
+  audio.onerror = () => {
+    currentAudio = null;
+    speakWithBrowser(word, card, onEnd);
+  };
+  audio.play().catch(() => {
+    currentAudio = null;
+    speakWithBrowser(word, card, onEnd);
+  });
+}
+
+function stopCurrentSound() {
+  if (currentAudio) {
+    currentAudio.onended = null;
+    currentAudio.onerror = null;
+    currentAudio.pause();
+    currentAudio.removeAttribute("src");
+    currentAudio.load();
+    currentAudio = null;
+  }
   if ("speechSynthesis" in window) speechSynthesis.cancel();
+}
+
+function stopSpeaking() {
+  stopCurrentSound();
   speakingAll = false;
   clearSpeakingCards();
   elements.playAll.classList.remove("playing");
@@ -384,7 +417,7 @@ function renderDictation() {
   elements.revealWord.textContent = "显示答案";
   elements.dictationPrev.disabled = dictationIndex === 0;
   elements.dictationNext.textContent = dictationIndex === dictationWords.length - 1 ? "重新开始" : "下一个";
-  window.setTimeout(() => speakWord(item.word), 180);
+  speakWord(item.word);
 }
 
 function revealDictation() {
@@ -426,7 +459,9 @@ elements.searchNotice.addEventListener("click", (event) => {
 });
 
 elements.voiceSelect.addEventListener("change", () => {
-  state.voiceURI = elements.voiceSelect.value;
+  const value = elements.voiceSelect.value;
+  state.audioMode = value === "bundled" ? "bundled" : "browser";
+  if (value.startsWith("browser:")) state.voiceURI = value.slice(8);
   saveState();
   speakWord("Welcome");
 });
